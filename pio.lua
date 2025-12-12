@@ -22,20 +22,20 @@ Original by:
 
 local ffi = require("ffi")
 
-PIOCart = {
-    m_Connected = true,
-    m_switchOn = true,
+Sys573 = {
+	m_Connected = true,
+	m_switchOn = true,
 	m_cartData = ffi.new("uint8_t[512 * 1024]")
 }
 
-function PIOCart.setLUTs()
+function Sys573.setLUTs()
 	local readLUT = PCSX.getReadLUT()
 	local writeLUT = PCSX.getWriteLUT()
 
-	if(readLUT == nil or writeLUT == nil) then return end
+	if (readLUT == nil or writeLUT == nil) then return end
 
-	if(PIOCart.m_Connected) then
-		PIOCart.PAL:setLUTs()
+	if (Sys573.m_connected) then
+		Sys573.CPLD:setLUTs()
 	else
 		ffi.fill(readLUT + 0x1f00, 6 * ffi.sizeof("void *"), 0)
 	end
@@ -45,34 +45,34 @@ function PIOCart.setLUTs()
 	ffi.fill(writeLUT + 0xbf00, 6 * ffi.sizeof("void *"), 0)
 end
 
-function PIOCart.read8(address) 
-	return PIOCart.PAL:read8(address)
+function Sys573.read8(address)
+	return Sys573.PAL:read8(address)
 end
 
-function PIOCart.read16(address)
-	local byte2 = bit.lshift(PIOCart.read8(address + 1), 8)
-	local byte1 = PIOCart.read8(address)
+function Sys573.read16(address)
+	local byte2 = bit.lshift(Sys573.read8(address + 1), 8)
+	local byte1 = Sys573.read8(address)
 	return bit.bor(byte2, byte1)
 end
 
-function PIOCart.read32(address)
-	local byte4 = bit.lshift(PIOCart.read8(address), 24)
-	local byte3 = bit.lshift(PIOCart.read8(address + 1), 16)
-	local byte2 = bit.lshift(PIOCart.read8(address + 2), 8)
-	local byte1 = PIOCart.read8(address + 3)
+function Sys573.read32(address)
+	local byte4 = bit.lshift(Sys573.read8(address), 24)
+	local byte3 = bit.lshift(Sys573.read8(address + 1), 16)
+	local byte2 = bit.lshift(Sys573.read8(address + 2), 8)
+	local byte1 = Sys573.read8(address + 3)
 	return bit.bor(byte4, byte3, byte2, byte1)
 end
 
-function PIOCart.write8(address, value)
-	--print('PIOCart.write8 ' .. string.format("%x", address) .. ' = ' .. string.format("%x", value))
-	--PIOCart.PAL:write8(address, value)
+function Sys573.write8(address, value)
+	--print('Sys573.write8 ' .. string.format("%x", address) .. ' = ' .. string.format("%x", value))
+	--Sys573.PAL:write8(address, value)
 	assert(false, string.format("8-bit write to 573 port: 0x%02X -> 0x%04X", value, address))
 end
 
-function PIOCart.write16(address, value)
-	PIOCart.PAL:write16(address, value)
+function Sys573.write16(address, value)
+	Sys573.PAL:write16(address, value)
 end
 
-function PIOCart.write32(address, value)
-	PIOCart.PAL:write32(address, value)
+function Sys573.write32(address, value)
+	Sys573.PAL:write32(address, value)
 end

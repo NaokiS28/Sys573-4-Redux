@@ -17,96 +17,78 @@
  */
 ]]
 
-Support.extra.dofile('pio-cart.lua')
-
 local ffi = require("ffi")
+
+Support.extra.dofile('bitfuncs.lua')
+Support.extra.dofile('ringbuffer.lua')
+
+Support.extra.dofile('gx700.lua')
+Support.extra.dofile('cpld.lua')
+Support.extra.dofile('asic.lua')
+Support.extra.dofile('jamma.lua')
+Support.extra.dofile('jvs.lua')
+Support.extra.dofile('rtc.lua')
+Support.extra.dofile('expansion.lua')
+Support.extra.dofile('security.lua')
+Support.extra.dofile('watchdog.lua')
 
 -- Global callbacks
 function DrawImguiFrame()
-	local show = imgui.Begin('Lua PIO Cart', true)
-	if not show then imgui.End() return end
-
-	local changed
-
-	imgui.TextUnformatted('ROM Path: ' .. PIOCart.cart_path)
-
-	imgui.TextUnformatted('Enable Watchdog:')
-	imgui.SameLine()
-	changed, PIOCart.m_switchOn = imgui.Checkbox('##ToggleSwitch', PIOCart.m_switchOn)
-	imgui.SameLine()
-	if(PIOCart.m_switchOn) then 
-		imgui.TextUnformatted('On')
-	else
-		imgui.TextUnformatted('Off')
+	if (not imgui.Begin('Sys573-4-Redux', true)) then
+		imgui.End()
+		return
 	end
 
-	changed, PIOCart.m_Connected = imgui.Checkbox('Connected', PIOCart.m_Connected)
-	if(changed) then
-		PIOCart.setLUTs()
+	if (imgui.BeginTabBar('Tab Bar')) then
+		if (imgui.BeginTabItem('GX700')) then
+			Sys573:DrawImguiTab()
+			Sys573.Watchdog:DrawImguiWidget()
+			imgui.EndTabItem()
+		end
+		if (imgui.BeginTabItem('RTC')) then
+			Sys573.RTC:DrawImguiTab()
+			imgui.EndTabItem()
+		end
+		if (imgui.BeginTabItem('Security Cart')) then
+			Sys573.SecurityCart:DrawImguiTab()
+			imgui.EndTabItem()
+		end
+		if (imgui.BeginTabItem('JVS')) then
+			Sys573.JVS:DrawImguiTab()
+			imgui.EndTabItem()
+		end
+		if (imgui.BeginTabItem('JAMMA')) then
+			Sys573.JAMMA:DrawImguiTab()
+			imgui.EndTabItem()
+		end
+		if (imgui.BeginTabItem('Expansion')) then
+			Sys573.Expansion:DrawImguiTab()
+			imgui.EndTabItem()
+		end
+		imgui.EndTabBar()
 	end
-
 	imgui.End()
 end
 
 function UnknownMemoryRead(address, size)
-	local page = bit.band(bit.rshift(address,16),0x1fff)
-
-	if(page >= 0x1f00 and page < 0x1f80 and PIOCart.m_Connected) then
-		local addr = bit.band(address, 0x1fffffff)
-
-		if size == 1 then
-			return PIOCart.read8(addr)
-		elseif size == 2 then
-			return PIOCart.read16(addr)
-		elseif size == 4 then
-			return PIOCart.read32(addr)
-		end
+	if (address >= 0xbf000000 and address < 0xbf8000000) then address = address - 0xA0000000 end
+	if (address >= 0x1f000000 and address < 0x1f8000000 and Sys573.m_connected) then
+		return Sys573.read(address, size)
 	end
 
 	return 0xff
 end
 
 function UnknownMemoryWrite(address, size, value)
-	local page = bit.band(bit.rshift(address,16),0x1fff)
-
-	if(page >= 0x1f00 and page < 0x1f80 and PIOCart.m_Connected) then
-		local addr = bit.band(address, 0x1fffffff)
-
-		if size == 1 then
-			PIOCart.write8(addr, bit.band(value, 0xff))
-		elseif size == 2 then
-			PIOCart.write16(addr, bit.band(value, 0xffff))
-		elseif size == 4 then
-			PIOCart.write32(addr, bit.band(value, 0xffffffff))
-		end
-
-		return true
-	end
-end
--- Global callbacks
-
-function PIOCart.load(filename)
-	local max_rom_size = 512 * 1024
-	if(string.len(filename) == 0) then
-		print('cart filename cannot be blank')
-	else
-		local CartBinary = Support.extra.open(filename)
-		if(CartBinary:failed()) then
-			print('Failed to open file: ' .. filename)
-			return
-		end
-
-		print('Opened file: ' .. filename .. ' file size: ' .. CartBinary:size())
-
-		local rom_size = CartBinary:size()
-		if(rom_size > max_rom_size) then rom_size = max_rom_size end
-		ffi.fill(PIOCart.m_cartData, max_rom_size, 0xFF)
-		CartBinary:read(PIOCart.m_cartData, rom_size)
-
-		print('Loaded ' .. rom_size .. ' of ' .. CartBinary:size() .. ' bytes from file: ' .. filename)
-		PIOCart.cart_path = filename
-		CartBinary:close()
+	if (address >= 0xbf000000 and address < 0xbf8000000) then address = address - 0xA0000000 end
+	if (address >= 0x1f000000 and address < 0x1f8000000 and Sys573.m_connected) then
+		return Sys573.write(address, size, value)
 	end
 end
 
-PIOCart.event_lutsset = PCSX.Events.createEventListener('Memory::SetLuts', PIOCart.setLUTs)
+Sys573.ASIC:init()
+Sys573.RTC:init()
+Sys573.Expansion:init()
+Sys573.Watchdog:init()
+
+Sys573.event_lutsset = PCSX.Events.createEventListener('Memory::SetLuts', Sys573.setLUTs)
